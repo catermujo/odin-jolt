@@ -1,0 +1,1 @@
+/usr/bin/c++  -fno-rtti -fno-exceptions -ffp-model=precise -faligned-allocation -O3 -flto=thin -arch arm64 -pthread -dynamiclib -Wl,-headerpad_max_install_names -o lib/libjoltc.dylib -install_name @rpath/libjoltc.dylib CMakeFiles/joltc.dir/src/joltc.cpp.o CMakeFiles/joltc.dir/src/joltc_assert.cpp.o  lib/libJolt.a

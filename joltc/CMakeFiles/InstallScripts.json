@@ -1,0 +1,9 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/wolfie/studio/git/vendor/jolt/bindgen/joltc/cmake_install.cmake",
+		"/Users/wolfie/studio/git/vendor/jolt/bindgen/joltc/_deps/joltphysics-build/cmake_install.cmake",
+		"/Users/wolfie/studio/git/vendor/jolt/bindgen/joltc/samples/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
