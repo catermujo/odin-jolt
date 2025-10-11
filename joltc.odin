@@ -11,7 +11,7 @@ when (ODIN_OS == .Linux) {
 } else when (ODIN_OS == .Darwin) {
     foreign import lib "libJolt.darwin.a"
 } else when (ODIN_OS == .Windows) {
-    foreign import lib "joltc.dll"
+    foreign import lib "joltc.lib"
 }
 
 

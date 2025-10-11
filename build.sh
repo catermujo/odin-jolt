@@ -6,7 +6,7 @@ set -e
 
 echo "Building joltc.."
 cd joltc
-cmake . -B build -DJPH_BUILD_SHARED=OFF
+cmake . -B build -DCPP_EXCEPTIONS_ENABLED=OFF -DCPP_RTTI_ENABLED=OFF -DJPH_BUILD_SHARED=OFF -DCMAKE_BUILD_TYPE=Release
 if [ $(uname -s) = 'Darwin' ]; then
     make -j$(sysctl -n hw.ncpu) -C build
     LIB_EXT=darwin
