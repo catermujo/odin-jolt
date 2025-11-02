@@ -6,13 +6,11 @@ set -e
 
 echo "Building joltc.."
 cd joltc
-cmake . -B build -DCPP_EXCEPTIONS_ENABLED=OFF -DCPP_RTTI_ENABLED=OFF -DJPH_BUILD_SHARED=OFF -DCMAKE_BUILD_TYPE=Release
+cmake . -B build -DCPP_EXCEPTIONS_ENABLED=OFF -DCPP_RTTI_ENABLED=OFF -DJPH_BUILD_SHARED=ON -DCMAKE_BUILD_TYPE=Release
 if [ $(uname -s) = 'Darwin' ]; then
     make -j$(sysctl -n hw.ncpu) -C build
-    LIB_EXT=darwin
+    cp build/lib/libjoltc.dylib ../
 else
     make -j$(nproc) -C build
-    LIB_EXT=linux
+    cp build/lib/libjoltc.so ../
 fi
-
-cp build/lib/libjoltc.a ../libjoltc.$LIB_EXT.a

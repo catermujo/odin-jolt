@@ -6,10 +6,10 @@ import "core:c"
 
 _ :: c
 
-when (ODIN_OS == .Linux) {
-    foreign import lib "libJolt.linux.a"
+when ODIN_OS == .Linux {
+    foreign import lib "libjoltc.so"
 } else when (ODIN_OS == .Darwin) {
-    foreign import lib "libJolt.darwin.a"
+    foreign import lib "libjoltc.dylib"
 } else when (ODIN_OS == .Windows) {
     foreign import lib "joltc.lib"
 }
