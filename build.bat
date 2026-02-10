@@ -5,7 +5,7 @@ setlocal EnableDelayedExpansion
 set vendor_dir=joltc\JoltPhysics
 set binaries_dir=build
 
-if not exist joltc\JoltPhysics\NUL (
+if not exist joltc\JoltPhysics (
     git clone --recurse-submodules https://github.com/jrouwe/JoltPhysics -b v5.3.0 --depth=1 %vendor_dir%
 )
 
