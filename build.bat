@@ -13,12 +13,12 @@ set "BUILD_DIR=joltc\build_shared"
 set "OUTPUT_DIR=windows_%VENDOR_WINDOWS_ARCH%"
 
 if not exist "%JOLT_DIR%" (
-    git clone --recurse-submodules https://github.com/jrouwe/JoltPhysics -b v5.4.0 --depth=1 "%JOLT_DIR%"
+    git clone --recurse-submodules https://github.com/jrouwe/JoltPhysics -b v5.6.0 --depth=1 "%JOLT_DIR%"
     if errorlevel 1 exit /b 1
 )
 
 echo Configuring shared joltc...
-cmake -S joltc -B "%BUILD_DIR%" -A %VENDOR_WINDOWS_ARCH% -DCPP_EXCEPTIONS_ENABLED=OFF -DCPP_RTTI_ENABLED=OFF -DJPH_BUILD_SHARED=ON -DJPH_INSTALL=OFF -DJPH_SAMPLES=OFF -DCMAKE_BUILD_TYPE=Release
+cmake -S joltc -B "%BUILD_DIR%" -A %VENDOR_WINDOWS_ARCH% -DCPP_EXCEPTIONS_ENABLED=OFF -DCPP_RTTI_ENABLED=OFF -DJPH_BUILD_SHARED=ON -DJPH_USE_DX12=OFF -DJPH_USE_VK=OFF -DJPH_USE_MTL=OFF -DJPH_USE_CPU_COMPUTE=OFF -DJPH_INSTALL=OFF -DJPH_SAMPLES=OFF -DCMAKE_BUILD_TYPE=Release
 if errorlevel 1 exit /b 1
 
 echo Building shared joltc...

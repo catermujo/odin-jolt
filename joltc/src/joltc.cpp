@@ -76,6 +76,7 @@ JPH_SUPPRESS_WARNINGS
 
 #include <iostream>
 #include <cstdarg>
+#include <mutex>
 
 // All Jolt symbols are in the JPH namespace
 using namespace JPH;
@@ -350,7 +351,7 @@ static inline const JPH_PhysicsMaterial* FromJolt(const JPH::PhysicsMaterial* jo
 	return joltMaterial != nullptr ? ToPhysicsMaterial(joltMaterial) : nullptr;
 }
 
-static inline void FromJolt(const CharacterVirtual::Contact& jolt, JPH_CharacterVirtualContact* result)
+static inline void FromJolt(const CharacterContact& jolt, JPH_CharacterVirtualContact* result)
 {
 	result->hash = jolt.GetHash();
 	result->bodyB = (JPH_BodyID)jolt.mBodyB.GetIndexAndSequenceNumber();
@@ -598,9 +599,7 @@ static JPH::IndexedTriangle ToIndexedTriangle(const JPH_IndexedTriangle& triangl
 	return JPH::IndexedTriangle(triangle.i1, triangle.i2, triangle.i3, triangle.materialIndex, triangle.userData);
 }
 
-// 10 MB was not enough for large simulation, let's use TempAllocatorMalloc
 static bool s_initialized = false;
-static TempAllocator* s_TempAllocator = nullptr;
 
 class JobSystemCallback final : public JPH::JobSystemWithBarrier
 {
@@ -713,8 +712,6 @@ bool JPH_Init()
 	// Register all Jolt physics types
 	JPH::RegisterTypes();
 
-	// Init temp allocator
-	s_TempAllocator = new TempAllocatorImplWithMallocFallback(8 * 1024 * 1024);
 	s_initialized = true;
 
 	return true;
@@ -724,8 +721,6 @@ void JPH_Shutdown(void)
 {
 	if (!s_initialized)
 		return;
-
-	delete s_TempAllocator; s_TempAllocator = nullptr;
 
 	// Unregisters all types with the factory and cleans up the default material
 	JPH::UnregisterTypes();
@@ -908,8 +903,10 @@ struct JPH_PhysicsSystem final
 	JPH::ObjectLayerPairFilter* objectLayerPairFilter = nullptr;
 	JPH::ObjectVsBroadPhaseLayerFilter* objectVsBroadPhaseLayerFilter = nullptr;
 	JPH::PhysicsSystem* physicsSystem = nullptr;
+	JPH::TempAllocator* tempAllocator = nullptr;
 };
 static JPH::UnorderedMap<JPH::PhysicsSystem*, JPH_PhysicsSystem*> s_PhysicsSystems;
+static std::mutex s_PhysicsSystemsMutex;
 
 JPH_PhysicsSystem* JPH_PhysicsSystem_Create(const JPH_PhysicsSystemSettings* settings)
 {
@@ -927,12 +924,16 @@ JPH_PhysicsSystem* JPH_PhysicsSystem_Create(const JPH_PhysicsSystemSettings* set
 	const uint maxBodyPairs = settings->maxBodyPairs ? settings->maxBodyPairs : 65536;
 	const uint maxContactConstraints = settings->maxContactConstraints ? settings->maxContactConstraints : 10240;
 	system->physicsSystem = new JPH::PhysicsSystem();
+	system->tempAllocator = new JPH::TempAllocatorImplWithMallocFallback(8 * 1024 * 1024);
 	system->physicsSystem->Init(maxBodies, cNumBodyMutexes, maxBodyPairs, maxContactConstraints,
 		*system->broadPhaseLayerInterface,
 		*system->objectVsBroadPhaseLayerFilter,
 		*system->objectLayerPairFilter);
 
-	s_PhysicsSystems[system->physicsSystem] = system;
+	{
+		std::lock_guard<std::mutex> lock(s_PhysicsSystemsMutex);
+		s_PhysicsSystems[system->physicsSystem] = system;
+	}
 	return system;
 }
 
@@ -940,8 +941,12 @@ void JPH_PhysicsSystem_Destroy(JPH_PhysicsSystem* system)
 {
 	if (system)
 	{
-		s_PhysicsSystems.erase(system->physicsSystem);
+		{
+			std::lock_guard<std::mutex> lock(s_PhysicsSystemsMutex);
+			s_PhysicsSystems.erase(system->physicsSystem);
+		}
 		delete system->physicsSystem;
+		delete system->tempAllocator;
 		delete system->broadPhaseLayerInterface;
 		delete system->objectVsBroadPhaseLayerFilter;
 		delete system->objectLayerPairFilter;
@@ -1023,7 +1028,7 @@ void JPH_PhysicsSystem_OptimizeBroadPhase(JPH_PhysicsSystem* system)
 JPH_PhysicsUpdateError JPH_PhysicsSystem_Update(JPH_PhysicsSystem* system, float deltaTime, int collisionSteps, JPH_JobSystem* jobSystem)
 {
 	JPH::JobSystem* joltJobSystem = reinterpret_cast<JPH::JobSystem*>(jobSystem);
-	return static_cast<JPH_PhysicsUpdateError>(system->physicsSystem->Update(deltaTime, collisionSteps, s_TempAllocator, joltJobSystem));
+	return static_cast<JPH_PhysicsUpdateError>(system->physicsSystem->Update(deltaTime, collisionSteps, system->tempAllocator, joltJobSystem));
 }
 
 JPH_BodyInterface* JPH_PhysicsSystem_GetBodyInterface(JPH_PhysicsSystem* system)
@@ -5247,7 +5252,10 @@ public:
 			context.deltaTime = inContext.mDeltaTime;
 			context.isFirstStep = inContext.mIsFirstStep;
 			context.isLastStep = inContext.mIsLastStep;
-			context.physicsSystem = s_PhysicsSystems[inContext.mPhysicsSystem];
+			{
+				std::lock_guard<std::mutex> lock(s_PhysicsSystemsMutex);
+				context.physicsSystem = s_PhysicsSystems[inContext.mPhysicsSystem];
+			}
 			return s_Procs->OnStep(userData, &context);
 		}
 	}
@@ -8033,7 +8041,7 @@ void JPH_CharacterVirtual_Update(JPH_CharacterVirtual* character,
 		system->physicsSystem->GetDefaultLayerFilter(joltLayer),
 		ToJolt(bodyFilter),
 		ToJolt(shapeFilter),
-		*s_TempAllocator
+		*system->tempAllocator
 	);
 }
 
@@ -8061,7 +8069,7 @@ void JPH_CharacterVirtual_ExtendedUpdate(JPH_CharacterVirtual* character, float 
 		system->physicsSystem->GetDefaultLayerFilter(joltLayer),
 		ToJolt(bodyFilter),
 		ToJolt(shapeFilter),
-		*s_TempAllocator
+		*system->tempAllocator
 	);
 }
 
@@ -8077,7 +8085,7 @@ void JPH_CharacterVirtual_RefreshContacts(JPH_CharacterVirtual* character,
 		system->physicsSystem->GetDefaultLayerFilter(joltLayer),
 		ToJolt(bodyFilter),
 		ToJolt(shapeFilter),
-		*s_TempAllocator
+		*system->tempAllocator
 	);
 }
 
@@ -8108,7 +8116,7 @@ bool JPH_CharacterVirtual_WalkStairs(JPH_CharacterVirtual* character, float delt
 		system->physicsSystem->GetDefaultLayerFilter(joltLayer),
 		ToJolt(bodyFilter),
 		ToJolt(shapeFilter),
-		*s_TempAllocator
+		*system->tempAllocator
 	);
 }
 
@@ -8124,7 +8132,7 @@ bool JPH_CharacterVirtual_StickToFloor(JPH_CharacterVirtual* character, const JP
 		system->physicsSystem->GetDefaultLayerFilter(joltLayer),
 		ToJolt(bodyFilter),
 		ToJolt(shapeFilter),
-		*s_TempAllocator
+		*system->tempAllocator
 	);
 }
 
@@ -8149,7 +8157,7 @@ bool JPH_CharacterVirtual_SetShape(JPH_CharacterVirtual* character,
 		system->physicsSystem->GetDefaultLayerFilter(joltLayer),
 		ToJolt(bodyFilter),
 		ToJolt(shapeFilter),
-		*s_TempAllocator
+		*system->tempAllocator
 	);
 }
 
@@ -8217,45 +8225,54 @@ public:
 		}
 	}
 
-	bool OnContactValidate(const CharacterVirtual* inCharacter, const BodyID& inBodyID2, const SubShapeID& inSubShapeID2) override
+	bool OnContactValidate(const CharacterVirtual* inCharacter, const CharacterContact& inContact) override
 	{
 		if (s_Procs != nullptr && s_Procs->OnContactValidate)
 		{
+			JPH_CharacterVirtualContact contact;
+			FromJolt(inContact, &contact);
+
 			return s_Procs->OnContactValidate(
 				userData,
 				ToCharacterVirtual(inCharacter),
-				(JPH_BodyID)inBodyID2.GetIndexAndSequenceNumber(),
-				(JPH_SubShapeID)inSubShapeID2.GetValue()
+				contact.bodyB,
+				contact.subShapeIDB
 			);
 		}
 
 		return true;
 	}
 
-	bool OnCharacterContactValidate(const CharacterVirtual* inCharacter, const CharacterVirtual* inOtherCharacter, const SubShapeID& inSubShapeID2)  override
+	bool OnCharacterContactValidate(const CharacterVirtual* inCharacter, const CharacterContact& inContact) override
 	{
 		if (s_Procs != nullptr && s_Procs->OnCharacterContactValidate)
 		{
+			JPH_CharacterVirtualContact contact;
+			FromJolt(inContact, &contact);
+
 			return s_Procs->OnCharacterContactValidate(
 				userData,
 				ToCharacterVirtual(inCharacter),
-				ToCharacterVirtual(inOtherCharacter),
-				(JPH_SubShapeID)inSubShapeID2.GetValue()
+				contact.characterB,
+				contact.subShapeIDB
 			);
 		}
 
 		return true;
 	}
 
-	void OnContactAdded(const CharacterVirtual* inCharacter, const BodyID& inBodyID2, const SubShapeID& inSubShapeID2, RVec3Arg inContactPosition, Vec3Arg inContactNormal, CharacterContactSettings& ioSettings) override
+	void OnContactAdded(const CharacterVirtual* inCharacter, const CharacterContact& inContact, CharacterContactSettings& ioSettings) override
 	{
 		if (s_Procs != nullptr && s_Procs->OnContactAdded)
 		{
 			JPH_RVec3 contactPosition;
 			JPH_Vec3 contactNormal;
 
-			FromJolt(inContactPosition, &contactPosition);
-			FromJolt(inContactNormal, &contactNormal);
+			FromJolt(inContact.mPosition, &contactPosition);
+			FromJolt(inContact.mContactNormal, &contactNormal);
+
+			JPH_CharacterVirtualContact contact;
+			FromJolt(inContact, &contact);
 
 			JPH_CharacterContactSettings settings = {};
 			settings.canPushCharacter = ioSettings.mCanPushCharacter;
@@ -8264,8 +8281,8 @@ public:
 			s_Procs->OnContactAdded(
 				userData,
 				ToCharacterVirtual(inCharacter),
-				(JPH_BodyID)inBodyID2.GetIndexAndSequenceNumber(),
-				(JPH_SubShapeID)inSubShapeID2.GetValue(),
+				contact.bodyB,
+				contact.subShapeIDB,
 				&contactPosition,
 				&contactNormal,
 				&settings
@@ -8276,15 +8293,18 @@ public:
 		}
 	}
 
-	void OnContactPersisted(const CharacterVirtual* inCharacter, const BodyID& inBodyID2, const SubShapeID& inSubShapeID2, RVec3Arg inContactPosition, Vec3Arg inContactNormal, CharacterContactSettings& ioSettings) override
+	void OnContactPersisted(const CharacterVirtual* inCharacter, const CharacterContact& inContact, CharacterContactSettings& ioSettings) override
 	{
 		if (s_Procs != nullptr && s_Procs->OnContactPersisted)
 		{
 			JPH_RVec3 contactPosition;
 			JPH_Vec3 contactNormal;
 
-			FromJolt(inContactPosition, &contactPosition);
-			FromJolt(inContactNormal, &contactNormal);
+			FromJolt(inContact.mPosition, &contactPosition);
+			FromJolt(inContact.mContactNormal, &contactNormal);
+
+			JPH_CharacterVirtualContact contact;
+			FromJolt(inContact, &contact);
 
 			JPH_CharacterContactSettings settings = {};
 			settings.canPushCharacter = ioSettings.mCanPushCharacter;
@@ -8293,8 +8313,8 @@ public:
 			s_Procs->OnContactPersisted(
 				userData,
 				ToCharacterVirtual(inCharacter),
-				(JPH_BodyID)inBodyID2.GetIndexAndSequenceNumber(),
-				(JPH_SubShapeID)inSubShapeID2.GetValue(),
+				contact.bodyB,
+				contact.subShapeIDB,
 				&contactPosition,
 				&contactNormal,
 				&settings
@@ -8318,15 +8338,18 @@ public:
 		}
 	}
 
-	void OnCharacterContactAdded(const CharacterVirtual* inCharacter, const CharacterVirtual* inOtherCharacter, const SubShapeID& inSubShapeID2, RVec3Arg inContactPosition, Vec3Arg inContactNormal, CharacterContactSettings& ioSettings) override
+	void OnCharacterContactAdded(const CharacterVirtual* inCharacter, const CharacterContact& inContact, CharacterContactSettings& ioSettings) override
 	{
 		if (s_Procs != nullptr && s_Procs->OnCharacterContactAdded)
 		{
 			JPH_RVec3 contactPosition;
 			JPH_Vec3 contactNormal;
 
-			FromJolt(inContactPosition, &contactPosition);
-			FromJolt(inContactNormal, &contactNormal);
+			FromJolt(inContact.mPosition, &contactPosition);
+			FromJolt(inContact.mContactNormal, &contactNormal);
+
+			JPH_CharacterVirtualContact contact;
+			FromJolt(inContact, &contact);
 
 			JPH_CharacterContactSettings settings = {};
 			settings.canPushCharacter = ioSettings.mCanPushCharacter;
@@ -8335,8 +8358,8 @@ public:
 			s_Procs->OnCharacterContactAdded(
 				userData,
 				ToCharacterVirtual(inCharacter),
-				ToCharacterVirtual(inOtherCharacter),
-				(JPH_SubShapeID)inSubShapeID2.GetValue(),
+				contact.characterB,
+				contact.subShapeIDB,
 				&contactPosition,
 				&contactNormal,
 				&settings
@@ -8347,15 +8370,18 @@ public:
 		}
 	}
 
-	void OnCharacterContactPersisted(const CharacterVirtual* inCharacter, const CharacterVirtual* inOtherCharacter, const SubShapeID& inSubShapeID2, RVec3Arg inContactPosition, Vec3Arg inContactNormal, CharacterContactSettings& ioSettings) override
+	void OnCharacterContactPersisted(const CharacterVirtual* inCharacter, const CharacterContact& inContact, CharacterContactSettings& ioSettings) override
 	{
 		if (s_Procs != nullptr && s_Procs->OnCharacterContactPersisted)
 		{
 			JPH_RVec3 contactPosition;
 			JPH_Vec3 contactNormal;
 
-			FromJolt(inContactPosition, &contactPosition);
-			FromJolt(inContactNormal, &contactNormal);
+			FromJolt(inContact.mPosition, &contactPosition);
+			FromJolt(inContact.mContactNormal, &contactNormal);
+
+			JPH_CharacterVirtualContact contact;
+			FromJolt(inContact, &contact);
 
 			JPH_CharacterContactSettings settings = {};
 			settings.canPushCharacter = ioSettings.mCanPushCharacter;
@@ -8364,8 +8390,8 @@ public:
 			s_Procs->OnCharacterContactPersisted(
 				userData,
 				ToCharacterVirtual(inCharacter),
-				ToCharacterVirtual(inOtherCharacter),
-				(JPH_SubShapeID)inSubShapeID2.GetValue(),
+				contact.characterB,
+				contact.subShapeIDB,
 				&contactPosition,
 				&contactNormal,
 				&settings
@@ -9158,15 +9184,15 @@ void JPH_EstimateCollisionResponse(const JPH_Body* body1, const JPH_Body* body2,
 	FromJolt(joltResult.mTangent1, &result->tangent1);
 	FromJolt(joltResult.mTangent2, &result->tangent2);
 
-	if (!joltResult.mImpulses.empty())
+	if (!joltResult.mContactImpulse.empty())
 	{
-		result->impulseCount = static_cast<uint32_t>(joltResult.mImpulses.size());
-		result->impulses = (JPH_CollisionEstimationResultImpulse*)malloc(sizeof(JPH_CollisionEstimationResultImpulse) * joltResult.mImpulses.size());
+		result->impulseCount = static_cast<uint32_t>(joltResult.mContactImpulse.size());
+		result->impulses = (JPH_CollisionEstimationResultImpulse*)malloc(sizeof(JPH_CollisionEstimationResultImpulse) * joltResult.mContactImpulse.size());
 		for (uint32_t i = 0; i < result->impulseCount; i++)
 		{
-			result->impulses[i].contactImpulse = joltResult.mImpulses[i].mContactImpulse;
-			result->impulses[i].frictionImpulse1 = joltResult.mImpulses[i].mFrictionImpulse1;
-			result->impulses[i].frictionImpulse2 = joltResult.mImpulses[i].mFrictionImpulse2;
+			result->impulses[i].contactImpulse = joltResult.mContactImpulse[i];
+			result->impulses[i].frictionImpulse1 = joltResult.mFrictionImpulse1;
+			result->impulses[i].frictionImpulse2 = joltResult.mFrictionImpulse2;
 		}
 	}
 }
