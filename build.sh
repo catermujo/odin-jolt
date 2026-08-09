@@ -8,7 +8,7 @@ JOLT_DIR="$JOLTC_DIR/JoltPhysics"
 BUILD_DIR="$JOLTC_DIR/build_shared"
 
 if [ ! -d "$JOLT_DIR" ]; then
-    git clone --recurse-submodules https://github.com/jrouwe/JoltPhysics -b v5.3.0 --depth=1 "$JOLT_DIR"
+    git clone --recurse-submodules https://github.com/jrouwe/JoltPhysics -b v5.4.0 --depth=1 "$JOLT_DIR"
 fi
 
 linux_arch_dir() {

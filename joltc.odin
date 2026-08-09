@@ -639,6 +639,19 @@ CollideShapeCollectorCallback :: proc "c" (_: rawptr, _: ^CollideShapeResult) ->
 
 CastShapeCollectorCallback :: proc "c" (_: rawptr, _: ^ShapeCastResult) -> f32
 
+TireMaxImpulseCallback :: proc "c" (
+	_: rawptr,
+	_: u32,
+	_: ^f32,
+	_: ^f32,
+	_: f32,
+	_: f32,
+	_: f32,
+	_: f32,
+	_: f32,
+	_: f32,
+)
+
 CollisionEstimationResultImpulse :: struct {
     contactImpulse:   f32,
     frictionImpulse1: f32,
@@ -2422,6 +2435,7 @@ foreign lib {
     WheeledVehicleControllerSettings_SetDifferentials :: proc(settings: ^WheeledVehicleControllerSettings, values: ^VehicleDifferentialSettings, count: u32) ---
     WheeledVehicleControllerSettings_GetDifferentialLimitedSlipRatio :: proc(settings: ^WheeledVehicleControllerSettings) -> f32 ---
     WheeledVehicleControllerSettings_SetDifferentialLimitedSlipRatio :: proc(settings: ^WheeledVehicleControllerSettings, value: f32) ---
+    WheeledVehicleController_SetTireMaxImpulseCallback :: proc(controller: ^WheeledVehicleController, callback: TireMaxImpulseCallback, userData: rawptr) ---
     WheeledVehicleController_SetDriverInput :: proc(controller: ^WheeledVehicleController, forward: f32, right: f32, brake: f32, handBrake: f32) ---
     WheeledVehicleController_SetForwardInput :: proc(controller: ^WheeledVehicleController, forward: f32) ---
     WheeledVehicleController_GetForwardInput :: proc(controller: ^WheeledVehicleController) -> f32 ---

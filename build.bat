@@ -13,7 +13,7 @@ set "BUILD_DIR=joltc\build_shared"
 set "OUTPUT_DIR=windows_%VENDOR_WINDOWS_ARCH%"
 
 if not exist "%JOLT_DIR%" (
-    git clone --recurse-submodules https://github.com/jrouwe/JoltPhysics -b v5.3.0 --depth=1 "%JOLT_DIR%"
+    git clone --recurse-submodules https://github.com/jrouwe/JoltPhysics -b v5.4.0 --depth=1 "%JOLT_DIR%"
     if errorlevel 1 exit /b 1
 )
 

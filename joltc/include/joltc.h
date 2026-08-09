@@ -675,6 +675,7 @@ typedef void JPH_CollideShapeBodyResultCallback(void* context, const JPH_BodyID 
 typedef void JPH_CollidePointResultCallback(void* context, const JPH_CollidePointResult* result);
 typedef void JPH_CollideShapeResultCallback(void* context, const JPH_CollideShapeResult* result);
 typedef void JPH_CastShapeResultCallback(void* context, const JPH_ShapeCastResult* result);
+typedef void JPH_TireMaxImpulseCallback(void* userData, uint32_t wheelIndex, float* outLongitudinalImpulse, float* outLateralImpulse, float suspensionImpulse, float longitudinalFriction, float lateralFriction, float longitudinalSlip, float lateralSlip, float deltaTime);
 
 typedef float JPH_CastRayCollectorCallback(void* context, const JPH_RayCastResult* result);
 typedef float JPH_RayCastBodyCollectorCallback(void* context, const JPH_BroadPhaseCastResult* result);
@@ -2795,6 +2796,7 @@ JPH_CAPI void JPH_WheeledVehicleControllerSettings_SetDifferentials(JPH_WheeledV
 JPH_CAPI float JPH_WheeledVehicleControllerSettings_GetDifferentialLimitedSlipRatio(const JPH_WheeledVehicleControllerSettings* settings);
 JPH_CAPI void JPH_WheeledVehicleControllerSettings_SetDifferentialLimitedSlipRatio(JPH_WheeledVehicleControllerSettings* settings, float value);
 
+JPH_CAPI void JPH_WheeledVehicleController_SetTireMaxImpulseCallback(JPH_WheeledVehicleController* controller, JPH_TireMaxImpulseCallback* callback, void* userData);
 JPH_CAPI void JPH_WheeledVehicleController_SetDriverInput(JPH_WheeledVehicleController* controller, float forward, float right, float brake, float handBrake);
 JPH_CAPI void JPH_WheeledVehicleController_SetForwardInput(JPH_WheeledVehicleController* controller, float forward);
 JPH_CAPI float JPH_WheeledVehicleController_GetForwardInput(const JPH_WheeledVehicleController* controller);

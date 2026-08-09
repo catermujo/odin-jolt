@@ -8,7 +8,7 @@ JOLT_DIR="$JOLTC_DIR/JoltPhysics"
 BUILD_DIR="$JOLTC_DIR/build_static"
 
 if [ ! -d "$JOLT_DIR" ]; then
-    git clone --recurse-submodules https://github.com/jrouwe/JoltPhysics -b v5.3.0 --depth=1 "$JOLT_DIR"
+    git clone --recurse-submodules https://github.com/jrouwe/JoltPhysics -b v5.4.0 --depth=1 "$JOLT_DIR"
 fi
 
 linux_arch_dir() {
@@ -32,11 +32,13 @@ if [ "$HOST_OS" = "Darwin" ]; then
     ARCH_DIR="$(darwin_arch_dir)"
     CPU="$(sysctl -n hw.ncpu)"
     OUTPUT="$BUILD_DIR/lib/libjoltc.a"
+    JOLT_OUTPUT="$BUILD_DIR/lib/libJolt.a"
     LIB_NAME="joltc.darwin.a"
 elif [ "$HOST_OS" = "Linux" ]; then
     ARCH_DIR="$(linux_arch_dir)"
     CPU="$(nproc)"
     OUTPUT="$BUILD_DIR/lib/libjoltc.a"
+    JOLT_OUTPUT="$BUILD_DIR/lib/libJolt.a"
     LIB_NAME="joltc.linux.a"
 else
     echo "unsupported host OS: $HOST_OS" >&2
@@ -56,4 +58,15 @@ echo "Building static joltc..."
 cmake --build "$BUILD_DIR" --config Release -j"$CPU"
 
 mkdir -p "$ROOT_DIR/$ARCH_DIR"
-cp "$OUTPUT" "$ROOT_DIR/$ARCH_DIR/$LIB_NAME"
+if [ "$HOST_OS" = "Darwin" ]; then
+    libtool -static -o "$ROOT_DIR/$ARCH_DIR/$LIB_NAME" "$OUTPUT" "$JOLT_OUTPUT"
+else
+    ar -M <<EOF
+create $ROOT_DIR/$ARCH_DIR/$LIB_NAME
+addlib $OUTPUT
+addlib $JOLT_OUTPUT
+save
+end
+EOF
+    ranlib "$ROOT_DIR/$ARCH_DIR/$LIB_NAME"
+fi

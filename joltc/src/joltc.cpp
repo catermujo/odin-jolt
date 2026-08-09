@@ -10071,6 +10071,27 @@ void JPH_WheeledVehicleControllerSettings_SetDifferentialLimitedSlipRatio(JPH_Wh
 	AsWheeledVehicleControllerSettings(settings)->mDifferentialLimitedSlipRatio = value;
 }
 
+void JPH_WheeledVehicleController_SetTireMaxImpulseCallback(JPH_WheeledVehicleController* controller, JPH_TireMaxImpulseCallback* callback, void* userData)
+{
+	WheeledVehicleController* wheeled_controller = AsWheeledVehicleController(controller);
+	if (callback == nullptr)
+	{
+		wheeled_controller->SetTireMaxImpulseCallback(
+			[](uint, float& outLongitudinalImpulse, float& outLateralImpulse, float suspensionImpulse, float longitudinalFriction, float lateralFriction, float, float, float)
+			{
+				outLongitudinalImpulse = longitudinalFriction * suspensionImpulse;
+				outLateralImpulse = lateralFriction * suspensionImpulse;
+			});
+		return;
+	}
+
+	wheeled_controller->SetTireMaxImpulseCallback(
+		[callback, userData](uint wheelIndex, float& outLongitudinalImpulse, float& outLateralImpulse, float suspensionImpulse, float longitudinalFriction, float lateralFriction, float longitudinalSlip, float lateralSlip, float deltaTime)
+		{
+			callback(userData, static_cast<uint32_t>(wheelIndex), &outLongitudinalImpulse, &outLateralImpulse, suspensionImpulse, longitudinalFriction, lateralFriction, longitudinalSlip, lateralSlip, deltaTime);
+		});
+}
+
 void JPH_WheeledVehicleController_SetDriverInput(JPH_WheeledVehicleController* controller, float forward, float right, float brake, float handBrake)
 {
 	AsWheeledVehicleController(controller)->SetDriverInput(forward, right, brake, handBrake);
