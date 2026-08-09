@@ -1,2 +1,4 @@
 joltc/JoltPhysics
+joltc/build_shared/
+joltc/build_static/
 build/

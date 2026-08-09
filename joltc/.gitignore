@@ -1,4 +1,6 @@
 /build
+/build_shared
+/build_static
 /JoltPhysics
 /CMakeFiles
 /Makefile

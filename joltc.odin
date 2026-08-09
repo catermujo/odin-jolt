@@ -6,12 +6,74 @@ import "core:c"
 
 _ :: c
 
-when ODIN_OS == .Linux {
-    foreign import lib "libjoltc.so"
-} else when (ODIN_OS == .Darwin) {
-    foreign import lib "libjoltc.dylib"
-} else when (ODIN_OS == .Windows) {
-    foreign import lib "joltc.lib"
+when ODIN_OS == .Windows {
+    LINK :: #config(JOLTC_LINK, "shared")
+
+    when ODIN_ARCH == .amd64 {
+        when LINK == "shared" {
+            foreign import lib "windows_x64/joltc.lib"
+        } else when LINK == "static" {
+            foreign import lib "windows_x64/joltc_static.lib"
+        } else {
+            #panic("vendor/jolt supports shared and static linking only")
+        }
+    } else when ODIN_ARCH == .arm64 {
+        when LINK == "shared" {
+            foreign import lib "windows_arm64/joltc.lib"
+        } else when LINK == "static" {
+            foreign import lib "windows_arm64/joltc_static.lib"
+        } else {
+            #panic("vendor/jolt supports shared and static linking only")
+        }
+    } else {
+        #panic("vendor/jolt supports windows amd64/arm64 only")
+    }
+} else when ODIN_OS == .Darwin {
+    LINK :: #config(JOLTC_LINK, "shared")
+
+    when ODIN_ARCH == .amd64 {
+        when LINK == "shared" {
+            foreign import lib "darwin_x64/libjoltc.dylib"
+        } else when LINK == "static" {
+            foreign import lib "darwin_x64/joltc.darwin.a"
+        } else {
+            #panic("vendor/jolt supports shared and static linking only")
+        }
+    } else when ODIN_ARCH == .arm64 {
+        when LINK == "shared" {
+            foreign import lib "darwin_arm64/libjoltc.dylib"
+        } else when LINK == "static" {
+            foreign import lib "darwin_arm64/joltc.darwin.a"
+        } else {
+            #panic("vendor/jolt supports shared and static linking only")
+        }
+    } else {
+        #panic("vendor/jolt supports Darwin amd64/arm64 only")
+    }
+} else when ODIN_OS == .Linux {
+    LINK :: #config(JOLTC_LINK, "shared")
+
+    when ODIN_ARCH == .amd64 {
+        when LINK == "shared" {
+            foreign import lib "linux_x64/libjoltc.so"
+        } else when LINK == "static" {
+            foreign import lib "linux_x64/joltc.linux.a"
+        } else {
+            #panic("vendor/jolt supports shared and static linking only")
+        }
+    } else when ODIN_ARCH == .arm64 {
+        when LINK == "shared" {
+            foreign import lib "linux_arm64/libjoltc.so"
+        } else when LINK == "static" {
+            foreign import lib "linux_arm64/joltc.linux.a"
+        } else {
+            #panic("vendor/jolt supports shared and static linking only")
+        }
+    } else {
+        #panic("vendor/jolt supports Linux amd64/arm64 only")
+    }
+} else {
+    #panic("vendor/jolt supports Windows, Darwin, and Linux only")
 }
 
 
