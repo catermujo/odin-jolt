@@ -11,6 +11,23 @@ if /I "%VENDOR_WINDOWS_ARCH%"=="X86" set "VENDOR_WINDOWS_ARCH=x64"
 set "JOLT_DIR=joltc\JoltPhysics"
 set "BUILD_DIR=joltc\build_static"
 set "OUTPUT_DIR=windows_%VENDOR_WINDOWS_ARCH%"
+set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+set "VSINSTALL="
+
+if exist "%VSWHERE%" (
+    for /f "usebackq tokens=*" %%I in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSINSTALL=%%I"
+)
+if not defined VSINSTALL (
+    echo ERROR: Visual Studio C++ tools not found
+    exit /b 1
+)
+call "%VSINSTALL%\VC\Auxiliary\Build\vcvars64.bat" >nul
+if errorlevel 1 exit /b 1
+where lib.exe >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: Visual Studio lib.exe not found
+    exit /b 1
+)
 
 if not exist "%JOLT_DIR%" (
     git clone --recurse-submodules https://github.com/jrouwe/JoltPhysics -b v5.6.0 --depth=1 "%JOLT_DIR%"
@@ -28,9 +45,9 @@ if errorlevel 1 exit /b 1
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
 
 set "JOLTC_LIB="
-for /r "%BUILD_DIR%" %%F in (joltc.lib) do if not defined JOLTC_LIB set "JOLTC_LIB=%%F"
+for /r "%BUILD_DIR%" %%F in (joltc.lib) do if exist "%%F" if not defined JOLTC_LIB set "JOLTC_LIB=%%F"
 set "JOLT_LIB="
-for /r "%BUILD_DIR%" %%F in (Jolt.lib) do if not defined JOLT_LIB set "JOLT_LIB=%%F"
+for /r "%BUILD_DIR%" %%F in (Jolt.lib) do if exist "%%F" if not defined JOLT_LIB set "JOLT_LIB=%%F"
 
 if not defined JOLTC_LIB (
     echo ERROR: static joltc.lib not found

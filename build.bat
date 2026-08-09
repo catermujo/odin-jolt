@@ -28,9 +28,9 @@ if errorlevel 1 exit /b 1
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
 
 set "JOLTC_DLL="
-for /r "%BUILD_DIR%" %%F in (joltc.dll) do if not defined JOLTC_DLL set "JOLTC_DLL=%%F"
+for /r "%BUILD_DIR%" %%F in (joltc.dll) do if exist "%%F" if not defined JOLTC_DLL set "JOLTC_DLL=%%F"
 set "JOLTC_LIB="
-for /r "%BUILD_DIR%" %%F in (joltc.lib) do if not defined JOLTC_LIB set "JOLTC_LIB=%%F"
+for /r "%BUILD_DIR%" %%F in (joltc.lib) do if exist "%%F" if not defined JOLTC_LIB set "JOLTC_LIB=%%F"
 
 if not defined JOLTC_DLL (
     echo ERROR: shared joltc.dll not found
