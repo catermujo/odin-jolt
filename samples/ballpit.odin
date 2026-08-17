@@ -6,8 +6,9 @@ import "core:math/rand"
 import "core:mem"
 import "core:strings"
 
-import jph ".."
 import rl "vendor:raylib"
+
+import jph ".."
 
 OBJECT_LAYER_NON_MOVING: jph.ObjectLayer = 0
 OBJECT_LAYER_MOVING: jph.ObjectLayer = 1

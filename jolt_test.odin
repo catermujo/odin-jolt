@@ -1,8 +1,9 @@
 package jolt
 
-import "base:runtime"
 import "core:fmt"
 import "core:testing"
+
+import "base:runtime"
 
 @(test)
 hello_world :: proc(t: ^testing.T) {
